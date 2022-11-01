@@ -2,21 +2,32 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
+	"flag"
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/gorilla/mux"
 )
 
 type product struct {
 	Name        string `json:"name"`
-	ID          int64  `json:"id"`
+	ID          int    `json:"id"`
 	Description string `json:"description"`
-	Price       int64  `json:"price"`
+	Price       int    `json:"price"`
 }
 
-const port string = ":8080"
+func (p *product) validate() error {
+	if p.Name == "" {
+		return errors.New("name is required")
+	}
+	if p.Price == 0 {
+		return errors.New("price is required")
+	}
+	return nil
+}
 
 var products []product
 
@@ -27,8 +38,141 @@ func getProductsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func initProducts() {
-	bs, err := os.ReadFile("products.json")
+func createProductHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var p product
+	if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
+		log.Printf("error decoding product: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	if err := p.validate(); err != nil {
+		log.Printf("product validation error: %v", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	// set the id to the next available id
+	p.ID = len(products) + 1
+
+	// validate the product
+	if err := p.validate(); err != nil {
+		log.Printf("product validation error: %v", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	products = append(products, p)
+
+	w.WriteHeader(http.StatusCreated)
+}
+
+func getProductHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	vars := mux.Vars(r)
+
+	// convert the id to an int if its present in the request
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		log.Printf("error converting id to int: %v", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	p := lookupProduct(id)
+	if p == nil {
+		log.Printf("product with id %d not found", id)
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(p); err != nil {
+		log.Printf("error encoding product: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+}
+
+func updateProductHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	vars := mux.Vars(r)
+
+	// convert the id to an int if its present in the request
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		log.Printf("error converting id to int: %v", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	p := lookupProduct(id)
+	if p == nil {
+		log.Printf("product with id %d not found", id)
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
+		log.Printf("error decoding product: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	p.ID = id // ensure the id is set to the id in the url
+
+	// validate the product update
+	if err := p.validate(); err != nil {
+		log.Printf("product validation error: %v", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	for i := range products {
+		if id == products[i].ID {
+			products[i] = *p
+			log.Printf("updated product with id %d", id)
+			break
+		}
+	}
+}
+
+func deleteProductHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	vars := mux.Vars(r)
+
+	// convert the id to an int if its present in the request
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		log.Printf("error converting id to int: %v", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if p := lookupProduct(id); p == nil {
+		log.Printf("product with id %d not found", id)
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	for i, prod := range products {
+		if prod.ID == products[i].ID {
+			products = append(products[:i], products[i+1:]...)
+			log.Printf("deleted product with id %d", id)
+			break
+		}
+	}
+}
+
+func lookupProduct(id int) *product {
+	for _, p := range products {
+		if p.ID == id {
+			return &p
+		}
+	}
+	return nil
+}
+
+func initProducts(filepath string) {
+	bs, err := os.ReadFile(filepath)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -39,11 +183,20 @@ func initProducts() {
 }
 
 func main() {
-	initProducts()
+	// parse the command line flags for the products filepath
+	filePtr := flag.String("file", "products.json", "location of product JSON file")
+	flag.Parse()
+	initProducts(*filePtr)
 
 	r := mux.NewRouter()
+	// Routes consist of a path and a handler function.
+	r.HandleFunc("/products", createProductHandler).Methods(http.MethodPost)
+	r.HandleFunc("/products/{id}", updateProductHandler).Methods(http.MethodPut)
+	r.HandleFunc("/products/{id}", deleteProductHandler).Methods(http.MethodDelete)
+	r.HandleFunc("/products/{id}", getProductHandler)
 	r.HandleFunc("/products", getProductsHandler)
 
-	log.Printf("Listening on port %s...", port)
-	log.Fatal(http.ListenAndServe(port, r))
+	// Bind to a port and pass our router in
+	log.Println("Listening on port 8080")
+	log.Fatal(http.ListenAndServe("localhost:8080", r))
 }
