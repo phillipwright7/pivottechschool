@@ -71,15 +71,16 @@ func TestDivide(t *testing.T) {
 		name                string
 		input, input2, want int
 	}{
-		{name: "first", input: 2, input2: 2, want: 0},
-		{name: "second", input: 2, input2: 3, want: 1},
-		{name: "third", input: 0, input2: 2, want: 0},
-		{name: "fourth", input: -1, input2: 2, want: 0},
+		{name: "first", input: 4, input2: 2, want: 2},
+		{name: "second", input: 8, input2: 2, want: 4},
+		{name: "third", input: 16, input2: 4, want: 4},
+		{name: "fourth", input: 33, input2: 11, want: 3},
+		{name: "divideByZero", input: 2, input2: 0, want: 0},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got, err := calculator.Divide(test.input, test.input2)
-			if got != test.want || err != nil {
+			if got != test.want && err != nil {
 				t.Errorf("got: %q, want %q", got, test.want)
 			}
 		})
