@@ -3,7 +3,7 @@ package calculator_test
 import (
 	"testing"
 
-	"github.com/phillipwright7/pivottechschool/cmd/calculator"
+	"github.com/phillipwright7/pivottechschool/calculator"
 )
 
 func TestAdd(t *testing.T) {
