@@ -72,26 +72,3 @@ func (c *MarvelClient) GetCharacters(limit int) ([]character, error) {
 	}
 	return characterResponse.Data.Results, nil
 }
-
-/* func main() {
-	if err := godotenv.Load(); err != nil {
-		log.Fatal("Error loading .env file")
-	}
-	pubKey := os.Getenv("MARVEL_PUBLIC_KEY")
-	privKey := os.Getenv("MARVEL_PRIVATE_KEY")
-	client := marvelClient{
-		baseURL: "https://gateway.marvel.com:443/v1/public",
-		pubKey:  pubKey,
-		privKey: privKey,
-		httpClient: &http.Client{
-			Timeout: 10 * time.Second,
-		},
-	}
-
-	limit := 5
-	characters, err := client.getCharacters(limit)
-	if err != nil {
-		log.Fatal(err)
-	}
-	spew.Dump(characters)
-} */
