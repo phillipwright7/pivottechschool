@@ -1,18 +1,21 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"net/http"
 	"os"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/joho/godotenv"
 	"github.com/phillipwright7/pivottechschool/marvel"
 )
 
 func main() {
-	if err := godotenv.Load("../../.env"); err != nil {
+	var flagVar string
+	flag.StringVar(&flagVar, "flagVar", "", "Flag to find .env file")
+	flag.Parse()
+	if err := godotenv.Load(flagVar); err != nil {
 		log.Fatal("Error loading .env file")
 	}
 	pubKey := os.Getenv("MARVEL_PUBLIC_KEY")
@@ -26,10 +29,10 @@ func main() {
 		},
 	}
 
-	limit := 5
-	characters, err := client.GetCharacters(limit)
+	characters, err := client.GetCharacters(5)
 	if err != nil {
 		log.Fatal(err)
 	}
-	spew.Dump(characters)
+
+	log.Println(characters)
 }

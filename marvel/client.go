@@ -9,8 +9,6 @@ import (
 	"net/http"
 	"strconv"
 	"time"
-
-	"github.com/davecgh/go-spew/spew"
 )
 
 type MarvelClient struct {
@@ -63,8 +61,6 @@ func (c *MarvelClient) GetCharacters(limit int) ([]character, error) {
 		log.Fatal(err)
 	}
 	defer res.Body.Close()
-
-	spew.Dump(res.Status, res.StatusCode)
 
 	var characterResponse characterResponse
 	if err := json.NewDecoder(res.Body).Decode(&characterResponse); err != nil {

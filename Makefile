@@ -17,4 +17,4 @@ delete-product:
 	curl -i -X DELETE http://localhost:8080/products/99
 
 run-marvel:
-	cd cmd/marvel && go run main.go
+	cd cmd/marvel && go run main.go -flagVar=/Users/phillipwright/go/src/github.com/phillipwright7/pivottechschool/.env
