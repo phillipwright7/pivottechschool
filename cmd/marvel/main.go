@@ -12,10 +12,10 @@ import (
 )
 
 func main() {
-	var flagVar string
-	flag.StringVar(&flagVar, "flagVar", "", "Flag to find .env file")
+	var envPth string
+	flag.StringVar(&envPth, "p", ".env", "Flag to find .env file")
 	flag.Parse()
-	if err := godotenv.Load(flagVar); err != nil {
+	if err := godotenv.Load(envPth); err != nil {
 		log.Fatal("Error loading .env file")
 	}
 	pubKey := os.Getenv("MARVEL_PUBLIC_KEY")
