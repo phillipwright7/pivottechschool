@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/davecgh/go-spew/spew"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -40,7 +41,6 @@ func main() {
 	if err := json.Unmarshal(prod, &payload); err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(payload[98]["name"])
 
 	tx, err := db.Begin()
 	if err != nil {
@@ -59,10 +59,26 @@ func main() {
 		}
 	}
 
-	rows, err := db.Query("SELECT id, name FROM products WHERE id < 6")
+	rows, err := db.Query("SELECT id, name, price FROM products WHERE id = 1")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Println(rows)
+	defer rows.Close()
+
+	for rows.Next() {
+		var id int
+		var name string
+		var price float64
+		if err := rows.Scan(&id, &name, &price); err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println(id, name, price)
+	}
+
+	err = rows.Err()
+	if err != nil {
+		log.Fatal(err)
+	}
+	spew.Dump(rows)
 }
