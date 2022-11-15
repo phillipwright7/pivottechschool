@@ -15,3 +15,6 @@ update-product:
 
 delete-product:
 	curl -i -X DELETE http://localhost:8080/products/99
+
+run-marvel:
+	cd cmd/marvel && go run main.go -p=../../.env
