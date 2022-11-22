@@ -18,3 +18,14 @@ delete-product:
 
 run-marvel:
 	cd cmd/marvel && go run main.go -p=../../.env
+
+run-seeder:
+	cd cmd/seeder && go run main.go -p=../../products.db
+
+calculator-build:
+	cd cmd/calculator
+	go build -o calculator
+
+calculator-test:
+	cd calculator
+	go test -v ./...

@@ -1,0 +1,20 @@
+name: Default
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+        go-versions: 1.19
+
+        - name: Build
+          run: make calculator-test
+
+        - name: Test
+          run: make calculator-test
