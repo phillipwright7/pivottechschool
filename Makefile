@@ -24,7 +24,7 @@ run-seeder:
 
 calculator-build:
 	cd cmd/calculator
-	go build -o calculator
+	go build -v ./...
 
 calculator-test:
 	cd calculator
