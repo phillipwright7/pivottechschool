@@ -73,7 +73,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	rows, err := db.Query("SELECT id, name, price FROM products WHERE id <= 5")
+	rows, err := db.Query("SELECT id, name, price FROM products ORDER BY id LIMIT 5")
 	if err != nil {
 		log.Fatal(err)
 	}
