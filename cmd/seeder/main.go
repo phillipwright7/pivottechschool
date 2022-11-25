@@ -8,20 +8,30 @@ import (
 	"log"
 	"os"
 
-	"github.com/davecgh/go-spew/spew"
 	_ "github.com/mattn/go-sqlite3"
 )
 
+type product struct {
+	ID          int    `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Price       int    `json:"price"`
+}
+
+type products []product
+
 func main() {
-	var prodPth string
-	flag.StringVar(&prodPth, "p", "products.db", "Flag to find products.db")
+	var dbPtr string
+	var jsonPtr string
+	flag.StringVar(&dbPtr, "d", "products.db", "Flag to find products.db")
+	flag.StringVar(&jsonPtr, "j", "products.json", "Flag to read products.json")
 	flag.Parse()
 
-	if err := os.RemoveAll(prodPth); err != nil {
+	if err := os.RemoveAll(dbPtr); err != nil {
 		log.Fatal(err)
 	}
 
-	db, err := sql.Open("sqlite3", prodPth)
+	db, err := sql.Open("sqlite3", dbPtr)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -33,11 +43,11 @@ func main() {
 		log.Printf("%q: %s\n", err, sqlStmt)
 	}
 
-	prod, err := os.ReadFile("../server/products.json")
+	prod, err := os.ReadFile(jsonPtr)
 	if err != nil {
 		log.Fatal(err)
 	}
-	var payload []map[string]interface{}
+	var payload products
 	if err := json.Unmarshal(prod, &payload); err != nil {
 		log.Fatal(err)
 	}
@@ -52,14 +62,18 @@ func main() {
 	}
 	defer stmt.Close()
 
-	for i := range payload {
-		_, err = stmt.Exec(payload[i]["id"], payload[i]["name"], payload[i]["price"])
+	for _, p := range payload {
+		_, err = stmt.Exec(p.ID, p.Name, p.Price)
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
 
-	rows, err := db.Query("SELECT id, name, price FROM products WHERE id = 1")
+	if err := tx.Commit(); err != nil {
+		log.Fatal(err)
+	}
+
+	rows, err := db.Query("SELECT id, name, price FROM products WHERE id <= 5")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -80,5 +94,4 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	spew.Dump(rows)
 }

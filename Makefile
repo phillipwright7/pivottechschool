@@ -18,3 +18,6 @@ delete-product:
 
 run-marvel:
 	cd cmd/marvel && go run main.go -p=../../.env
+
+run-seeder:
+	cd cmd/seeder && go run main.go -d=products.db -j=../server/products.json
