@@ -1,13 +1,15 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
+	"flag"
 	"log"
 	"net/http"
-	"os"
 	"strconv"
 
 	"github.com/gorilla/mux"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type product struct {
@@ -17,11 +19,40 @@ type product struct {
 	Price       int    `json:"price"`
 }
 
-var products []product
+var database *sql.DB
 
 func getProductsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(products); err != nil {
+	var payload []product
+	params := r.URL.Query()["limit"]
+
+	rows, err := database.Query("SELECT id, name, price FROM products ORDER BY id LIMIT " + params[0])
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id int
+		var name string
+		var price float64
+		if err := rows.Scan(&id, &name, &price); err != nil {
+			log.Fatal(err)
+		}
+		p := product{
+			ID:    id,
+			Name:  name,
+			Price: int(price),
+		}
+		payload = append(payload, p)
+	}
+
+	err = rows.Err()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err := json.NewEncoder(w).Encode(payload); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -30,18 +61,41 @@ func getProductsHandler(w http.ResponseWriter, r *http.Request) {
 func getProductHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
-	id, err := strconv.Atoi(vars["id"])
+	var payload product
+	rows, err := database.Query("SELECT id, name, price FROM products WHERE id = " + vars["id"])
 	if err != nil {
-		log.Printf("error converting id to int: %v", err)
-	}
-	p := productFinder(id)
-	if p == nil {
-		log.Printf("product with id %d is not found", id)
+		w.WriteHeader(400)
 		return
 	}
-	if err := json.NewEncoder(w).Encode(p); err != nil {
-		log.Printf("error encoding product: %v", id)
-		w.WriteHeader(http.StatusInternalServerError)
+	defer rows.Close()
+
+	for rows.Next() {
+		var id int
+		var name string
+		var price float64
+		if err := rows.Scan(&id, &name, &price); err != nil {
+			w.WriteHeader(400)
+			return
+		}
+		payload = product{
+			ID:    id,
+			Name:  name,
+			Price: int(price),
+		}
+	}
+
+	if payload.ID == 0 {
+		w.WriteHeader(404)
+		return
+	}
+
+	err = rows.Err()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err := json.NewEncoder(w).Encode(payload); err != nil {
+		w.WriteHeader(500)
 		return
 	}
 }
@@ -50,95 +104,165 @@ func addProductHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var p product
 	if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
-		log.Printf("error decoding product: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(400)
 		return
 	}
-	p.ID = len(products) + 1
-	products = append(products, p)
-	if err := json.NewEncoder(w).Encode(products); err != nil {
-		log.Printf("error encoding product: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
+	if p.Name == "" || p.Price == 0 {
+		w.WriteHeader(400)
 		return
 	}
+
+	tx, err := database.Begin()
+	if err != nil {
+		w.WriteHeader(500)
+		return
+	}
+	stmt, err := tx.Prepare("INSERT INTO products (name, price) values(?, ?)")
+	if err != nil {
+		w.WriteHeader(400)
+		return
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(p.Name, p.Price)
+	if err != nil {
+		w.WriteHeader(400)
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		w.WriteHeader(400)
+		return
+	}
+
+	w.WriteHeader(201)
 }
 
 func updateProductHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+
 	vars := mux.Vars(r)
-	id, err := strconv.Atoi(vars["id"])
-	if err != nil {
-		log.Printf("error converting id to int: %v", err)
+	if _, err := strconv.Atoi(vars["id"]); err != nil {
+		w.WriteHeader(400)
 		return
 	}
-	p := productFinder(id)
-	if p == nil {
-		log.Printf("product with id %d is not found", id)
-		return
-	}
+
+	var p product
 	if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
-		log.Printf("error decoding product: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(400)
 		return
 	}
-	products[id] = *p
-	if err := json.NewEncoder(w).Encode(products); err != nil {
-		log.Printf("error encoding product: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
+	if p.Name == "" || p.Price == 0 {
+		w.WriteHeader(400)
 		return
 	}
+
+	tx, err := database.Begin()
+	if err != nil {
+		w.WriteHeader(500)
+		return
+	}
+	stmt, err := tx.Prepare("UPDATE products SET name = ?, price = ? WHERE id = ?")
+	if err != nil {
+		w.WriteHeader(400)
+		return
+	}
+	defer stmt.Close()
+
+	result, err := stmt.Exec(p.Name, p.Price, vars["id"])
+	if err != nil {
+		w.WriteHeader(400)
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		w.WriteHeader(400)
+		return
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		w.WriteHeader(500)
+		return
+	}
+	if rows == 0 {
+		w.WriteHeader(404)
+		return
+	}
+
+	w.WriteHeader(201)
+
 }
 
 func deleteProductHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
-	id, err := strconv.Atoi(vars["id"])
-	if err != nil {
-		log.Printf("error converting id to int: %v", err)
+	if _, err := strconv.Atoi(vars["id"]); err != nil {
+		w.WriteHeader(400)
 		return
 	}
-	p := productFinder(id)
-	for i, prod := range products {
-		if prod.ID == p.ID {
-			products = append(products[:i], products[i+1:]...)
-		}
+
+	tx, err := database.Begin()
+	if err != nil {
+		w.WriteHeader(500)
+		return
 	}
-	if err := json.NewEncoder(w).Encode(products); err != nil {
-		log.Printf("error encoding product: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
+	stmt, err := tx.Prepare("DELETE FROM products WHERE id = ?")
+	if err != nil {
+		w.WriteHeader(400)
+		return
+	}
+	defer stmt.Close()
+
+	result, err := stmt.Exec(vars["id"])
+	if err != nil {
+		w.WriteHeader(400)
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		w.WriteHeader(400)
+		return
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		w.WriteHeader(500)
+		return
+	}
+	if rows == 0 {
+		w.WriteHeader(404)
 		return
 	}
 }
 
-func productFinder(id int) *product {
-	for _, p := range products {
-		if p.ID == id {
-			return &p
-		}
-	}
-	return nil
-}
+func initProducts() *sql.DB {
+	var dbPtr string
+	flag.StringVar(&dbPtr, "db", "products.db", "Flag to find products.db")
+	flag.Parse()
 
-func initProducts() {
-	bs, err := os.ReadFile("cmd/server/products.json")
+	db, err := sql.Open("sqlite3", dbPtr)
 	if err != nil {
 		log.Fatal(err)
-		return
 	}
-	if err := json.Unmarshal(bs, &products); err != nil {
+
+	if err := db.Ping(); err != nil {
 		log.Fatal(err)
-		return
 	}
+
+	log.Println("Connected to products database successfully!")
+
+	return db
 }
 
 func main() {
-	initProducts()
+	database = initProducts()
 	r := mux.NewRouter()
 	r.HandleFunc("/products", addProductHandler).Methods(http.MethodPost)
 	r.HandleFunc("/products/{id}", updateProductHandler).Methods(http.MethodPut)
 	r.HandleFunc("/products/{id}", deleteProductHandler).Methods(http.MethodDelete)
 	r.HandleFunc("/products/{id}", getProductHandler)
-	r.HandleFunc("/products", getProductsHandler)
+	r.HandleFunc("/products", getProductsHandler).Queries("limit", "{limit:[0-9]+}")
 	log.Println("Listening on port :8080...")
 	log.Fatal(http.ListenAndServe(":8080", r))
 }
