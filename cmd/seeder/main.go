@@ -23,8 +23,8 @@ type products []product
 func main() {
 	var dbPtr string
 	var jsonPtr string
-	flag.StringVar(&dbPtr, "d", "products.db", "Flag to find products.db")
-	flag.StringVar(&jsonPtr, "j", "products.json", "Flag to read products.json")
+	flag.StringVar(&dbPtr, "db", "products.db", "Flag to find products.db")
+	flag.StringVar(&jsonPtr, "json", "products.json", "Flag to read products.json")
 	flag.Parse()
 
 	if err := os.RemoveAll(dbPtr); err != nil {
