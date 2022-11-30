@@ -25,8 +25,17 @@ func getProductsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var payload []product
 	params := r.URL.Query()["limit"]
+	paramsConv, err := strconv.Atoi(params[0])
+	if paramsConv < 0 {
+		w.WriteHeader(400)
+		return
+	}
+	if err != nil {
+		w.WriteHeader(400)
+		return
+	}
 
-	rows, err := database.Query("SELECT id, name, price FROM products ORDER BY id LIMIT " + params[0])
+	rows, err := database.Query("SELECT id, name, price FROM products ORDER BY id LIMIT ?", params[0])
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -60,9 +69,20 @@ func getProductsHandler(w http.ResponseWriter, r *http.Request) {
 
 func getProductHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+
 	vars := mux.Vars(r)
+	varConv, err := strconv.Atoi(vars["id"])
+	if varConv < 0 {
+		w.WriteHeader(400)
+		return
+	}
+	if err != nil {
+		w.WriteHeader(400)
+		return
+	}
+
 	var payload product
-	rows, err := database.Query("SELECT id, name, price FROM products WHERE id = " + vars["id"])
+	rows, err := database.Query("SELECT id, name, price FROM products WHERE id = ?", vars["id"])
 	if err != nil {
 		w.WriteHeader(400)
 		return
@@ -142,7 +162,12 @@ func updateProductHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
-	if _, err := strconv.Atoi(vars["id"]); err != nil {
+	varConv, err := strconv.Atoi(vars["id"])
+	if varConv < 0 {
+		w.WriteHeader(400)
+		return
+	}
+	if err != nil {
 		w.WriteHeader(400)
 		return
 	}
@@ -189,9 +214,6 @@ func updateProductHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(404)
 		return
 	}
-
-	w.WriteHeader(201)
-
 }
 
 func deleteProductHandler(w http.ResponseWriter, r *http.Request) {
@@ -262,7 +284,7 @@ func main() {
 	r.HandleFunc("/products/{id}", updateProductHandler).Methods(http.MethodPut)
 	r.HandleFunc("/products/{id}", deleteProductHandler).Methods(http.MethodDelete)
 	r.HandleFunc("/products/{id}", getProductHandler)
-	r.HandleFunc("/products", getProductsHandler).Queries("limit", "{limit:[0-9]+}")
+	r.HandleFunc("/products", getProductsHandler).Queries("limit", "{limit:.*}")
 	log.Println("Listening on port :8080...")
 	log.Fatal(http.ListenAndServe(":8080", r))
 }
