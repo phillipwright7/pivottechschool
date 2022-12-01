@@ -78,6 +78,8 @@ Your cart:
 3. ... | price: $... | quantity: #
 4. ... | price: $... | quantity: #
 
+Total: $...
+
 Input a product number for the quantity you'd like to edit.
 (Or if you'd like to return to the category view, press "r" and then press enter.)
 ```
