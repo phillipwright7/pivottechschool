@@ -73,10 +73,10 @@ $ c
 
 ```
 Your cart:
-1. ... (qty. #)
-2. ... (qty. #)
-3. ... (qty. #)
-4. ... (qty. #)
+1. ... | price: $... | quantity: #
+2. ... | price: $... | quantity: #
+3. ... | price: $... | quantity: #
+4. ... | price: $... | quantity: #
 
 Input a product number for the quantity you'd like to edit.
 (Or if you'd like to return to the category view, press "r" and then press enter.)
