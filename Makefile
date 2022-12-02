@@ -20,6 +20,7 @@ run-marvel:
 	cd cmd/marvel && go run main.go -p=../../.env
 
 run-seeder:
+<<<<<<< HEAD
 	cd cmd/seeder && go run main.go -p=../../products.db
 
 calculator-build:
@@ -29,3 +30,6 @@ calculator-build:
 calculator-test:
 	cd calculator
 	go test -v ./...
+=======
+	cd cmd/seeder && go run main.go -db=products.db -json=../server/products.json
+>>>>>>> main
