@@ -23,10 +23,7 @@ run-seeder:
 	cd cmd/seeder && go run main.go -db=../../products.db -json=../server/products.json
 
 calculator-build:
-	cd cmd/calculator
-	go build -v ./...
+	cd cmd/calculator && go build -v
 
 calculator-test:
-	cd calculator
-	go test -v ./...
-	cd cmd/seeder && go run main.go -db=products.db -json=../server/products.json
+	cd calculator && go test -v ./...
