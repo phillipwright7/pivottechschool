@@ -86,3 +86,24 @@ func TestDivide(t *testing.T) {
 		})
 	}
 }
+
+func TestPow(t *testing.T) {
+	tests := []struct {
+		name                string
+		input, input2, want float64
+	}{
+		{name: "first", input: 2, input2: 3, want: 8},
+		{name: "second", input: 3, input2: 3, want: 27},
+		{name: "third", input: 16, input2: 2, want: 256},
+		{name: "fourth", input: 5, input2: 4, want: 625},
+		{name: "fifth", input: 10, input2: 0, want: 1},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := calculator.Pow(test.input, test.input2)
+			if got != test.want {
+				t.Errorf("got: %f, want %f", got, test.want)
+			}
+		})
+	}
+}
