@@ -37,7 +37,8 @@ func getProductsHandler(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := database.Query("SELECT id, name, price FROM products ORDER BY id LIMIT ?", params[0])
 	if err != nil {
-		log.Fatal(err)
+		w.WriteHeader(500)
+		return
 	}
 	defer rows.Close()
 
@@ -46,7 +47,8 @@ func getProductsHandler(w http.ResponseWriter, r *http.Request) {
 		var name string
 		var price float64
 		if err := rows.Scan(&id, &name, &price); err != nil {
-			log.Fatal(err)
+			w.WriteHeader(500)
+			return
 		}
 		p := product{
 			ID:    id,
@@ -58,7 +60,8 @@ func getProductsHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = rows.Err()
 	if err != nil {
-		log.Fatal(err)
+		w.WriteHeader(500)
+		return
 	}
 
 	if err := json.NewEncoder(w).Encode(payload); err != nil {
@@ -82,36 +85,26 @@ func getProductHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var payload product
-	rows, err := database.Query("SELECT id, name, price FROM products WHERE id = ?", vars["id"])
-	if err != nil {
-		w.WriteHeader(400)
-		return
-	}
-	defer rows.Close()
 
-	for rows.Next() {
-		var id int
-		var name string
-		var price float64
-		if err := rows.Scan(&id, &name, &price); err != nil {
-			w.WriteHeader(400)
-			return
-		}
-		payload = product{
-			ID:    id,
-			Name:  name,
-			Price: int(price),
-		}
-	}
-
-	if payload.ID == 0 {
+	rows := database.QueryRow("SELECT id, name, price FROM products WHERE id = ?", vars["id"])
+	var id int
+	var name string
+	var price float64
+	if err := rows.Scan(&id, &name, &price); err != nil {
 		w.WriteHeader(404)
 		return
 	}
 
+	payload = product{
+		ID:    id,
+		Name:  name,
+		Price: int(price),
+	}
+
 	err = rows.Err()
 	if err != nil {
-		log.Fatal(err)
+		w.WriteHeader(500)
+		return
 	}
 
 	if err := json.NewEncoder(w).Encode(payload); err != nil {
@@ -127,10 +120,8 @@ func addProductHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(400)
 		return
 	}
-	if p.Name == "" || p.Price == 0 {
-		w.WriteHeader(400)
-		return
-	}
+
+	p.Validate(w)
 
 	tx, err := database.Begin()
 	if err != nil {
@@ -139,19 +130,19 @@ func addProductHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	stmt, err := tx.Prepare("INSERT INTO products (name, price) values(?, ?)")
 	if err != nil {
-		w.WriteHeader(400)
+		w.WriteHeader(500)
 		return
 	}
 	defer stmt.Close()
 
 	_, err = stmt.Exec(p.Name, p.Price)
 	if err != nil {
-		w.WriteHeader(400)
+		w.WriteHeader(500)
 		return
 	}
 
 	if err := tx.Commit(); err != nil {
-		w.WriteHeader(400)
+		w.WriteHeader(500)
 		return
 	}
 
@@ -174,11 +165,17 @@ func updateProductHandler(w http.ResponseWriter, r *http.Request) {
 
 	var p product
 	if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
-		w.WriteHeader(400)
+		w.WriteHeader(500)
 		return
 	}
-	if p.Name == "" || p.Price == 0 {
-		w.WriteHeader(400)
+	p.Validate(w)
+
+	rows := database.QueryRow("SELECT id, name, price FROM products WHERE id = ?", vars["id"])
+	var id int
+	var name string
+	var price float64
+	if err := rows.Scan(&id, &name, &price); err != nil {
+		w.WriteHeader(404)
 		return
 	}
 
@@ -189,38 +186,38 @@ func updateProductHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	stmt, err := tx.Prepare("UPDATE products SET name = ?, price = ? WHERE id = ?")
 	if err != nil {
-		w.WriteHeader(400)
+		w.WriteHeader(500)
 		return
 	}
 	defer stmt.Close()
 
-	result, err := stmt.Exec(p.Name, p.Price, vars["id"])
-	if err != nil {
-		w.WriteHeader(400)
+	if _, err := stmt.Exec(p.Name, p.Price, vars["id"]); err != nil {
+		w.WriteHeader(500)
 		return
 	}
 
 	if err := tx.Commit(); err != nil {
-		w.WriteHeader(400)
-		return
-	}
-
-	rows, err := result.RowsAffected()
-	if err != nil {
 		w.WriteHeader(500)
 		return
 	}
-	if rows == 0 {
-		w.WriteHeader(404)
-		return
-	}
+
 }
 
 func deleteProductHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+
 	vars := mux.Vars(r)
 	if _, err := strconv.Atoi(vars["id"]); err != nil {
 		w.WriteHeader(400)
+		return
+	}
+
+	rows := database.QueryRow("SELECT id, name, price FROM products WHERE id = ?", vars["id"])
+	var id int
+	var name string
+	var price float64
+	if err := rows.Scan(&id, &name, &price); err != nil {
+		w.WriteHeader(404)
 		return
 	}
 
@@ -236,24 +233,13 @@ func deleteProductHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer stmt.Close()
 
-	result, err := stmt.Exec(vars["id"])
-	if err != nil {
+	if _, err := stmt.Exec(vars["id"]); err != nil {
 		w.WriteHeader(400)
 		return
 	}
 
 	if err := tx.Commit(); err != nil {
-		w.WriteHeader(400)
-		return
-	}
-
-	rows, err := result.RowsAffected()
-	if err != nil {
 		w.WriteHeader(500)
-		return
-	}
-	if rows == 0 {
-		w.WriteHeader(404)
 		return
 	}
 }
@@ -275,6 +261,13 @@ func initProducts() *sql.DB {
 	log.Println("Connected to products database successfully!")
 
 	return db
+}
+
+func (p *product) Validate(w http.ResponseWriter) {
+	if p.Name == "" || p.Price == 0 {
+		w.WriteHeader(400)
+		return
+	}
 }
 
 func main() {

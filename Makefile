@@ -8,7 +8,7 @@ get-products:
 
 	curl -i -X GET http://localhost:8080/products?limit=a && printf "\n"
 
-	curl -i -X GET http://localhost:8080/products?limit=5 && printf "\n"
+	curl -i -X GET http://localhost:8080/products?limit=99 && printf "\n"
 
 get-product:
 	curl -i -X GET http://localhost:8080/products/0 && printf "\n"
@@ -17,7 +17,7 @@ get-product:
 
 	curl -i -X GET http://localhost:8080/products/b && printf "\n"
 
-	curl -i -X GET http://localhost:8080/products/99 && printf "\n"
+	curl -i -X GET http://localhost:8080/products/98 && printf "\n"
 
 add-product:
 	curl -i -X POST http://localhost:8080/products -d '{"price": 2}' && printf "\n"
@@ -46,7 +46,7 @@ delete-product:
 
 	curl -i -X DELETE http://localhost:8080/products/c && printf "\n"
 
-	curl -i -X DELETE http://localhost:8080/products/100 && printf "\n"
+	curl -i -X DELETE http://localhost:8080/products/99 && printf "\n"
 
 run-marvel:
 	cd cmd/marvel && go run main.go -p=../../.env
