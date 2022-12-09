@@ -59,3 +59,6 @@ calculator-build:
 
 calculator-test:
 	cd calculator && go test -v ./...
+
+run-capstone:
+	cd capstone && go run main.go
