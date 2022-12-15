@@ -198,7 +198,7 @@ func shoppingCart() (string, int, error) {
 
 	fmt.Printf("%*s %-*s   %-*s   %s\n", countPad, " ", titlePad, "Name", pricePad, "Price", "Quantity")
 	fmt.Println(strings.Repeat("-", countPad+titlePad+pricePad+quantityPad+9))
-	fmt.Println(cartTitles)
+
 	for _, t := range cartTitles {
 		fmt.Printf("%0*d. %-*s | $%-*d | %-*d\n", countPad, cartCount[t], titlePad, t, pricePad, cartPrice[t], quantityPad, cartQuantity[t])
 		total += float64(cartPrice[t] * cartQuantity[t])
