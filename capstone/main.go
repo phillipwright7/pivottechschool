@@ -289,6 +289,7 @@ CATEGORIES:
 		log.Println("program has quit")
 		return
 	}
+
 CART:
 	if category == "c" && err == nil {
 		input, editNum, err := shoppingCart()
